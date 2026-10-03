@@ -1,0 +1,18 @@
+{
+  "name": "location-tracker-server",
+  "version": "1.0.0",
+  "description": "Disclosed employee location tracking: Android app ingests GPS, owner dashboard displays it",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "better-sqlite3": "^12.4.1",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "ws": "^8.18.3"
+  }
+}

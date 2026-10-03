@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Work Tracker</string>
+    <string name="consent_message">This app tracks your location</string>
+    <string name="accept">Accept</string>
+    <string name="decline">Decline</string>
+    <string name="activation_title">Activation</string>
+    <string name="server_url_hint">Server URL (e.g. http://192.168.1.10:3000)</string>
+    <string name="token_hint">Activation code</string>
+    <string name="start_tracking">Start tracking</string>
+    <string name="battery_button">Battery settings</string>
+    <string name="status_active">Tracking active</string>
+    <string name="status_connecting">Connecting…</string>
+    <string name="status_not_started">Not started</string>
+    <string name="status_detail_fmt">Reports your location every 60 seconds to:\n%s</string>
+    <string name="notif_title">Location tracking active</string>
+    <string name="notif_text">Sending location every 60 seconds</string>
+    <string name="fill_both_fields">Please fill both fields</string>
+    <string name="invalid_server_url">Invalid server URL</string>
+</resources>

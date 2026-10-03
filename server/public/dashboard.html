@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard — Location Tracker</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>Location Tracker</h1>
+  <nav>
+    <button id="btn-live" class="tab active">Live map</button>
+    <button id="btn-employees" class="tab">Employees</button>
+    <button id="btn-history" class="tab">History</button>
+    <form action="/logout" method="post" class="inline"><button class="linklike">Log out</button></form>
+  </nav>
+</header>
+
+<main>
+  <section id="panel-live" class="panel">
+    <div id="map" class="map"></div>
+    <aside id="emp-list" class="side"></aside>
+  </section>
+
+  <section id="panel-employees" class="panel hidden">
+    <div class="manage">
+      <div class="manage-add">
+        <input id="new-emp-name" placeholder="Employee name" maxlength="60">
+        <button id="add-emp-btn" class="btn">Add employee</button>
+      </div>
+      <div id="new-emp-result" class="manage-result hidden"></div>
+      <div id="manage-list" class="manage-list"></div>
+    </div>
+  </section>
+
+  <section id="panel-history" class="panel hidden">
+    <div class="hist-controls">
+      <label>Employee
+        <select id="hist-emp"></select>
+      </label>
+      <label>From <input type="datetime-local" id="hist-from"></label>
+      <label>To <input type="datetime-local" id="hist-to"></label>
+      <button id="hist-load">Show</button>
+      <a id="hist-csv" class="btn" href="#" download>Export CSV</a>
+    </div>
+    <div id="hist-map" class="map"></div>
+  </section>
+</main>
+
+<template id="tpl-emp-row">
+  <div class="emp-row">
+    <div class="emp-head">
+      <span class="dot"></span><strong class="name"></strong>
+      <span class="badge"></span>
+    </div>
+    <div class="emp-meta muted"></div>
+  </div>
+</template>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/js/dashboard.js"></script>
+</body>
+</html>
