@@ -9,7 +9,7 @@
     <string name="field_phone">Phone number (UK)</string>
     <string name="field_device">Device name</string>
     <string name="consent_checkbox">I consent to my location being tracked while I work</string>
-    <string name="submit_start">Submit & start tracking</string>
+    <string name="submit_start">Submit &amp; start tracking</string>
     <string name="submitting">Submitting…</string>
     <string name="battery_button">Battery settings</string>
     <string name="status_active">Tracking active</string>
