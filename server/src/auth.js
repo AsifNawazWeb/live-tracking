@@ -15,6 +15,17 @@ function requireAdmin(req, res, next) {
   return res.redirect('/login');
 }
 
+// optional shared secret protecting the app's self-registration endpoint;
+// unset REGISTRATION_KEY in .env to leave it open.
+function checkRegistrationKey(req) {
+  const expected = process.env.REGISTRATION_KEY;
+  if (!expected) return true;
+  const got = req.get('X-Registration-Key') || '';
+  const a = Buffer.from(got);
+  const b = Buffer.from(expected);
+  return a.length === b.length && require('crypto').timingSafeEqual(a, b);
+}
+
 router.get('/login', (req, res) => {
   res.sendFile('login.html', { root: 'public' });
 });
@@ -40,4 +51,4 @@ router.post('/logout', requireAdmin, (req, res) => {
   req.session.destroy(() => res.redirect('/login'));
 });
 
-module.exports = { router, requireAdmin };
+module.exports = { router, requireAdmin, checkRegistrationKey };

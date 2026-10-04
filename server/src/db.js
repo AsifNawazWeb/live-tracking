@@ -31,6 +31,19 @@ CREATE TABLE IF NOT EXISTS locations (
 CREATE INDEX IF NOT EXISTS idx_locations_emp_time ON locations(employee_id, recorded_at);
 `);
 
+// migration: self-registration fields (idempotent)
+function addColumn(table, column, def) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
+  if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT${def ? ' ' + def : ''};`);
+}
+addColumn('employees', 'email');
+addColumn('employees', 'ni_number');
+addColumn('employees', 'phone');
+addColumn('employees', 'device_name');
+addColumn('employees', 'consented_at');
+db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_email ON employees(email)
+         WHERE email IS NOT NULL AND email != '';`);
+
 function newToken() {
   return crypto.randomBytes(16).toString('hex');
 }

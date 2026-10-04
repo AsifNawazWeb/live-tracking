@@ -2,12 +2,12 @@
 
 Disclosed employee location tracking for a courier business.
 
-- **Android app** (employee's phone): shows a one-time consent screen ("This app tracks your location"), then a foreground service reports GPS every 60 seconds — while the phone is locked, all day — with the mandatory Android notification visible.
+- **Android app** (employee's phone): first launch shows a short registration form (name, email, UK National Insurance number, phone, consent tick) — submit and tracking starts automatically, no server URL or codes to type.
 - **Node.js server**: ingests locations and serves the owner dashboard.
-- **Owner dashboard**: password-protected live map (all couriers), today's trails, per-employee history playback and CSV export.
+- **Owner dashboard**: password-protected live map (all couriers), today's trails, per-employee history playback and CSV export. Shows each employee's email / NI / phone / device; details can be edited after registration.
 - **Kill switch**: deactivating an employee in the dashboard makes their app stop reporting within ~60 s.
 
-> Tracking is disclosed by design: the consent screen, the persistent notification, and Android's own location icon are all visible to the employee. Covert tracking is neither implemented nor supported.
+> Tracking is disclosed by design: the consent checkbox on the registration form, the persistent notification, and Android's own location icon are all visible to the employee. Covert tracking is neither implemented nor supported.
 
 ---
 
@@ -30,23 +30,28 @@ No `.env` yet? The server still boots with `admin` / `admin` — change it befor
 While the server runs on your PC, only phones on the **same Wi-Fi** can send data.
 
 1. Find your PC's LAN IP: `hostname -I` (Linux) or `ipconfig` (Windows), e.g. `192.168.1.10`.
-2. In the app, enter server URL `http://192.168.1.10:3000`.
+2. Bake that URL into the APK at build time (next section) — employees never type it.
 3. If it doesn't connect, allow port 3000 through your firewall.
 
 Remote tracking (from anywhere) needs the server on a VPS with HTTPS — see §5.
 
 ---
 
-## 2. Create an employee + activation code
+## 2. Employees: self-registration (no access tokens to hand out)
 
-Dashboard → **Employees** tab → enter the name → **Add employee**.
+Employees register themselves — the server URL is baked into the app, and the **first page** the app opens is a registration form:
 
-The highlighted box shows the **activation code** (with a copy button) and it later appears under the employee's name in the list. One employee = one phone. In the same tab you can also:
+- Full name
+- Email address (unique — reinstalling on a new phone re-links the same person, no duplicates)
+- **UK National Insurance number** (validated: e.g. `AB123456C`)
+- UK phone number
+- Consent tick ("I consent to my location being tracked") — required, tracking starts immediately after submit
 
-- **Deactivate / Activate** — the kill switch: a deactivated employee's phone stops reporting within ~60 s; re-activating resumes automatically within ~15 min.
-- **Delete** — removes the employee and all their history.
+The device model (e.g. "Pixel 7") is auto-attached. Everything appears instantly on the dashboard's live map under their name; rename or correct details any time via **Employees → Edit**.
 
-Prefer the API instead? 
+Optionally set `REGISTRATION_KEY` in `server/.env` and build the APK with the same value — then only your APK can register (blocks random public signups).
+
+Prefer the API instead?
 
 ```bash
 curl -c jar.txt -d 'username=admin&password=YOURPASS' http://localhost:3000/login
@@ -61,25 +66,25 @@ curl -b jar.txt -H 'Content-Type: application/json' \
 No Android Studio needed — the included GitHub Actions workflow builds the APK for you:
 
 1. Push this repo to GitHub.
-2. Actions → "Build Android APK" → download artifact `work-tracker-apk` → `app-debug.apk`.
-   (Or build locally: install Android SDK, then `cd android && gradle assembleDebug`.)
+2. Actions → "Build Android APK" → enter your **Server URL** (e.g. `https://tracker.yourdomain.com`) and optionally the `REGISTRATION_KEY` → download artifact `work-tracker-apk` → `app-debug.apk`.
+   The server URL and registration key are **baked into the APK** — nothing for employees to configure. Defaults (no input): `http://192.168.1.10:3000`.
+   (Or build locally: `cd android && gradle assembleDebug -PSERVER_URL=https://tracker.yourdomain.com -PREGISTRATION_KEY=yourkey`.)
 
 On the employee's phone:
 
 1. Copy `app-debug.apk` to the phone (WhatsApp/USB/Drive), tap it, allow "install unknown apps" when prompted.
-2. Open **Work Tracker** → consent screen ("This app tracks your location") → **Accept**.
-3. Enter **Server URL** and the employee's **activation code** from step 2 → **Start tracking**.
-4. Grant Android's prompts: location (choose **"Allow all the time"** if asked), notifications, battery exemption.
-5. "Tracking active" notification appears. GPS is sent every 60 s — foreground, background, locked.
+2. Open **Work Tracker** → the **registration form** is the first page → fill in the 5 fields, tick consent → **Submit & start tracking**.
+3. Grant Android's prompts: location (choose **"Allow all the time"** if asked), notifications, battery exemption.
+4. "Tracking active" notification appears. GPS is sent every 60 s — foreground, background, locked.
 
-Changing the server or code later: clear the app from Settings, or reinstall.
+Reinstalling the app (new phone or wipe): the same email re-registers and resumes the same employee record. Changing the baked-in server needs a new APK, not a reinstall.
 
 ---
 
 ## 4. Dashboard
 
 - **Live map tab** — courier positions, "live"/"no signal" badges, battery, today's trails; auto-refreshes every 30 s and pushes instantly via WebSocket.
-- **Employees tab** — add employees (activation code + copy), deactivate/activate (kill switch), delete.
+- **Employees tab** — self-registered employees appear automatically with name, email, NI number, phone and device; Edit to correct/rename; deactivate/activate (kill switch); Delete.
 - **History tab** — pick employee + time range → route on map, start/end pins, CSV export.
 
 ## 5. Production on a VPS (~$5/mo, any provider)
@@ -102,7 +107,7 @@ apt install caddy
 systemctl reload caddy
 ```
 
-Then the app's Server URL becomes `https://tracker.yourdomain.com`, and set `cookie.secure` accordingly (patch `index.js`: `cookie: { maxAge, secure: true }`).
+Then the baked-in app server URL becomes `https://tracker.yourdomain.com` (rebuild the APK with it), and set `cookie.secure` accordingly (patch `index.js`: `cookie: { maxAge, secure: true }`).
 
 ---
 
@@ -110,13 +115,14 @@ Then the app's Server URL becomes `https://tracker.yourdomain.com`, and set `coo
 
 | Endpoint | Auth | Purpose |
 |---|---|---|
+| `POST /api/v1/register` | optional `X-Registration-Key` | self-registration `{name, email, ni_number, phone, device_name, consent}` → upserts by email, returns `{token, active}` |
 | `POST /api/v1/location` | device token | `{token, lat, lng, accuracy?, speed?, bearing?, battery?}` → saves + broadcasts |
 | `GET /api/v1/ping?token=` | device token | server liveness + active check (app boot retry) |
 | `POST /login` | — | admin login (form) |
 | `GET /api/live` | session | latest position per active employee |
 | `GET /api/employees` | session | list w/ last location |
-| `POST /api/employees` | session | create → returns `device_token` (activation code) |
-| `PATCH /api/employees/:id` | session | `{"active":false}` = kill switch |
+| `POST /api/employees` | session | create → returns `device_token` (manual/code path for pre-installed phones) |
+| `PATCH /api/employees/:id` | session | `{"active":false}` = kill switch; also `name`, `email`, `ni_number`, `phone`, `device_name` |
 | `DELETE /api/employees/:id` | session | delete + history |
 | `GET /api/employees/:id/locations?from=&to=` | session | history JSON |
 | `GET /api/employees/:id/locations.csv` | session | CSV export |

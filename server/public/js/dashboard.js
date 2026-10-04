@@ -124,12 +124,30 @@ function renderManageList() {
           <code>${esc(e.device_token)}</code>
           <button class="copy-chip" data-copy="${esc(e.device_token)}">copy code</button>
         </div>
+        ${(e.email || e.ni_number || e.phone) ? `
+        <div class="manage-id">
+          ${e.email ? `<span title="Email">✉ ${esc(e.email)}</span>` : ''}
+          ${e.ni_number ? `<span title="NI number">ID: ${esc(e.ni_number)}</span>` : ''}
+          ${e.phone ? `<span title="Phone">☎ ${esc(e.phone)}</span>` : ''}
+          ${e.device_name ? `<span class="muted" title="Device">${esc(e.device_name)}</span>` : ''}
+        </div>` : ''}
       </div>
       <div class="manage-actions">
         <button class="btn ${e.active ? 'off' : ''} js-toggle" data-id="${e.id}" data-active="${e.active}">
           ${e.active ? 'Deactivate' : 'Activate'}
         </button>
+        <button class="btn js-edit" data-id="${e.id}">Edit</button>
         <button class="btn danger js-del" data-id="${e.id}" data-name="${esc(e.name)}">Delete</button>
+      </div>
+      <div class="edit-form hidden" id="edit-${e.id}">
+        <label>Name <input data-f="name" value="${esc(e.name)}"></label>
+        <label>Email <input data-f="email" value="${esc(e.email || '')}"></label>
+        <label>NI number <input data-f="ni_number" value="${esc(e.ni_number || '')}"></label>
+        <label>Phone <input data-f="phone" value="${esc(e.phone || '')}"></label>
+        <div class="edit-actions">
+          <button class="btn js-save" data-id="${e.id}">Save</button>
+          <button class="btn off js-cancel" data-id="${e.id}">Cancel</button>
+        </div>
       </div>`;
     box.appendChild(row);
   }
@@ -151,7 +169,7 @@ async function addEmployee() {
   box.classList.remove('hidden');
   box.innerHTML = `
     <strong>✓ ${esc(emp.name)} created</strong>
-    <span class="muted">Activation code — enter it in the Android app together with your server URL:</span>
+    <span class="muted">Activation code — for phones installed before self-registration. New installs register themselves from the app.</span>
     <div class="code-line"><code>${esc(emp.device_token)}</code>
       <button class="copy-chip" data-copy="${esc(emp.device_token)}">copy</button></div>`;
   box.querySelector('.copy-chip').onclick = ev => copyText(ev.target, emp.device_token);
@@ -165,6 +183,27 @@ async function setEmployeeActive(id, active) {
     body: JSON.stringify({ active })
   });
   loadEmployees();
+}
+
+async function saveEmployee(id) {
+  const form = document.getElementById(`edit-${id}`);
+  if (!form) return;
+  const body = {};
+  for (const input of form.querySelectorAll('input[data-f]')) {
+    body[input.dataset.f] = input.value;
+  }
+  const res = await fetch(`/api/employees/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) { alert('Save failed: ' + ((await res.json()).error || res.status)); return; }
+  loadEmployees();
+}
+
+function toggleEditForm(id) {
+  const form = document.getElementById(`edit-${id}`);
+  if (form) form.classList.toggle('hidden');
 }
 
 async function deleteEmployee(id) {
@@ -262,6 +301,12 @@ document.getElementById('manage-list').addEventListener('click', e => {
   if (copyBtn) return copyText(copyBtn, copyBtn.dataset.copy);
   const toggleBtn = e.target.closest('.js-toggle');
   if (toggleBtn) return setEmployeeActive(toggleBtn.dataset.id, toggleBtn.dataset.active !== 'true');
+  const editBtn = e.target.closest('.js-edit');
+  if (editBtn) return toggleEditForm(editBtn.dataset.id);
+  const cancelBtn = e.target.closest('.js-cancel');
+  if (cancelBtn) return toggleEditForm(cancelBtn.dataset.id);
+  const saveBtn = e.target.closest('.js-save');
+  if (saveBtn) return saveEmployee(saveBtn.dataset.id);
   const delBtn = e.target.closest('.js-del');
   if (delBtn && confirm(`Delete "${delBtn.dataset.name}" and all their history?`)) {
     return deleteEmployee(delBtn.dataset.id);

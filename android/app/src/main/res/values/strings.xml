@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Work Tracker</string>
-    <string name="consent_message">This app tracks your location</string>
-    <string name="accept">Accept</string>
-    <string name="decline">Decline</string>
-    <string name="activation_title">Activation</string>
-    <string name="server_url_hint">Server URL (e.g. http://192.168.1.10:3000)</string>
-    <string name="token_hint">Activation code</string>
-    <string name="start_tracking">Start tracking</string>
+    <string name="register_title">Registration</string>
+    <string name="register_subtitle">Enter your details once — tracking starts automatically on this device.</string>
+    <string name="field_name">Full name</string>
+    <string name="field_email">Email address</string>
+    <string name="field_ni">National Insurance number (e.g. AB123456C)</string>
+    <string name="field_phone">Phone number (UK)</string>
+    <string name="field_device">Device name</string>
+    <string name="consent_checkbox">I consent to my location being tracked while I work</string>
+    <string name="submit_start">Submit & start tracking</string>
+    <string name="submitting">Submitting…</string>
     <string name="battery_button">Battery settings</string>
     <string name="status_active">Tracking active</string>
     <string name="status_connecting">Connecting…</string>
@@ -15,6 +18,10 @@
     <string name="status_detail_fmt">Reports your location every 60 seconds to:\n%s</string>
     <string name="notif_title">Location tracking active</string>
     <string name="notif_text">Sending location every 60 seconds</string>
-    <string name="fill_both_fields">Please fill both fields</string>
-    <string name="invalid_server_url">Invalid server URL</string>
+    <string name="err_name">Enter your full name</string>
+    <string name="err_email">Enter a valid email address</string>
+    <string name="err_ni">Enter a valid National Insurance number (e.g. AB123456C)</string>
+    <string name="err_phone">Enter a valid UK phone number</string>
+    <string name="err_consent">Consent is required to start tracking</string>
+    <string name="err_server">Something went wrong — please try again</string>
 </resources>

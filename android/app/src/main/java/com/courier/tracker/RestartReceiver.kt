@@ -13,12 +13,11 @@ class RestartReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val prefs = context.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean(MainActivity.KEY_CONSENT, false)) return
-        val url = prefs.getString(MainActivity.KEY_SERVER_URL, null) ?: return
+        val url = BuildConfig.SERVER_URL.trimEnd('/')
         val token = prefs.getString(MainActivity.KEY_TOKEN, null) ?: return
 
         // Ask the server whether this device is still active.
-        ApiClient.checkStatus(url.trimEnd('/'), token) { code, _ ->
+        ApiClient.checkStatus(url, token) { code, _ ->
             if (code == 200) {
                 val svc = Intent(context, TrackingService::class.java)
                 ContextCompat.startForegroundService(context, svc)

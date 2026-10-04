@@ -7,6 +7,15 @@ on:
       - 'android/**'
       - '.github/workflows/build-apk.yml'
   workflow_dispatch:
+    inputs:
+      server_url:
+        description: 'Server URL to bake into the APK (e.g. https://tracker.yourdomain.com)'
+        required: true
+        default: 'http://192.168.1.10:3000'
+      registration_key:
+        description: 'Optional REGISTRATION_KEY (must match server .env, leave empty if none)'
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -24,7 +33,10 @@ jobs:
           gradle-version: '8.7'
 
       - name: Build debug APK
-        run: gradle assembleDebug --no-daemon
+        run: >
+          gradle assembleDebug --no-daemon
+          -PSERVER_URL='${{ github.event.inputs.server_url }}'
+          -PREGISTRATION_KEY='${{ github.event.inputs.registration_key }}'
         working-directory: android
 
       - name: Upload APK artifact

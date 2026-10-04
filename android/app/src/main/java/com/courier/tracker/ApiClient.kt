@@ -52,6 +52,67 @@ object ApiClient {
         client.newCall(req).enqueue(wrap(onResult))
     }
 
+    /**
+     * Self-registration from the app's first-run form.
+     * onSuccess receives the device token issued by the server; tracking starts
+     * immediately after. onError gets a user-facing message.
+     */
+    fun register(
+        baseUrl: String,
+        name: String,
+        email: String,
+        niNumber: String,
+        phone: String,
+        deviceName: String,
+        consent: Boolean,
+        onSuccess: (token: String) -> Unit,
+        onError: (userMessage: String?) -> Unit
+    ) {
+        val body = JSONObject()
+        body.put("name", name)
+        body.put("email", email)
+        body.put("ni_number", niNumber)
+        body.put("phone", phone)
+        body.put("device_name", deviceName)
+        body.put("consent", consent)
+        val req = Request.Builder()
+            .url("$baseUrl/api/v1/register")
+            .post(body.toString().toRequestBody(JSON_TYPE))
+            .apply {
+                if (BuildConfig.REGISTRATION_KEY.isNotEmpty()) {
+                    addHeader("X-Registration-Key", BuildConfig.REGISTRATION_KEY)
+                }
+            }
+            .build()
+        client.newCall(req).enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                val text = try { response.body?.string() } catch (e: Exception) { null }
+                val code = response.code
+                response.close()
+                if (code in 200..299) {
+                    val token = try {
+                        JSONObject(text
+                            ?: "").optString("token")
+                    } catch (e: Exception) { "" }
+                    if (token.isNotEmpty()) {
+                        onSuccess(token)
+                        return
+                    }
+                    onError("Server sent an unexpected response")
+                } else {
+                    val msg = try {
+                        JSONObject(text ?: "").optString("error")
+                    } catch (e: Exception) { "" }
+                    onError(msg.ifEmpty { "Server error (HTTP $code)" })
+                }
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                onError("Cannot reach the server")
+            }
+        })
+    }
+
     private fun post(
         url: String,
         json: String,

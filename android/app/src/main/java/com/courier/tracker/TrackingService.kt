@@ -47,15 +47,15 @@ class TrackingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val serverUrl = prefs.getString(MainActivity.KEY_SERVER_URL, null)
+        val serverUrl = BuildConfig.SERVER_URL.trimEnd('/')
         val token = prefs.getString(MainActivity.KEY_TOKEN, null)
-        if (serverUrl.isNullOrBlank() || token.isNullOrBlank()) {
+        if (token.isNullOrBlank()) {
             stopSelf()
             return START_NOT_STICKY
         }
         startForegroundCompat()
         isRunning = true
-        requestLocationUpdates(serverUrl.trimEnd('/'), token)
+        requestLocationUpdates(serverUrl, token)
         return START_STICKY
     }
 

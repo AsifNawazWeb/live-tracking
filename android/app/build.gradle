@@ -7,12 +7,26 @@ android {
     namespace 'com.courier.tracker'
     compileSdk 34
 
+    buildFeatures {
+        buildConfig true
+    }
+
     defaultConfig {
         applicationId "com.courier.tracker"
         minSdk 24
         targetSdk 34
         versionCode 1
         versionName "1.0"
+
+        // Server URL and optional registration key baked into the APK at build time.
+        // Override with: gradle assembleDebug -PSERVER_URL=https://tracker.yourdomain.com
+        def serverUrl = (project.findProperty('SERVER_URL') ?: 'http://192.168.1.10:3000').toString()
+        def regKey = (project.findProperty('REGISTRATION_KEY') ?: '').toString()
+        if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
+            serverUrl = "https://$serverUrl"
+        }
+        buildConfigField 'String', 'SERVER_URL', "\"${serverUrl.replace('"', '\\\\"')}\""
+        buildConfigField 'String', 'REGISTRATION_KEY', "\"${regKey.replace('"', '\\\\"')}\""
     }
 
     buildTypes {

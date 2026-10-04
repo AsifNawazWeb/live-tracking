@@ -50,9 +50,15 @@ main { height: calc(100vh - 54px); }
 .code-line code { font-family: ui-monospace, monospace; font-size: 1rem; color: var(--accent); word-break: break-all; }
 .copy-chip { margin-left: auto; flex: none; padding: .25rem .6rem; font-size: .8rem; border-radius: 6px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
 .manage-list { display: grid; gap: .6rem; }
-.manage-row { display: flex; align-items: center; gap: .8rem; background: var(--panel); border-radius: 10px; padding: .8rem; }
+.manage-row { display: flex; align-items: center; gap: .8rem; background: var(--panel); border-radius: 10px; padding: .8rem; flex-wrap: wrap; }
 .manage-main { flex: 1; min-width: 0; }
 .manage-name { display: flex; align-items: center; gap: .5rem; }
+.manage-id { display: flex; gap: .8rem; margin-top: .35rem; font-size: .78rem; color: var(--text); flex-wrap: wrap; }
+.edit-form { flex-basis: 100%; display: flex; gap: .6rem; flex-wrap: wrap; align-items: end; background: #222b35; border-radius: 10px; padding: .7rem; }
+.edit-form label { display: grid; gap: .25rem; font-size: .75rem; color: var(--muted); }
+.edit-form input { padding: .4rem; border-radius: 8px; border: 1px solid #2d3742; background: #0f1419; color: var(--text); min-width: 160px; }
+.edit-actions { display: flex; gap: .5rem; }
+#panel-employees .btn.js-save { color: #fff; }
 .pill { font-size: .72rem; padding: .15rem .5rem; border-radius: 99px; font-weight: 600; }
 .pill.on { background: rgba(81, 207, 102, .15); color: var(--green); }
 .pill.off { background: rgba(255, 107, 107, .15); color: var(--red); }

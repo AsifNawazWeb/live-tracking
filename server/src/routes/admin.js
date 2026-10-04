@@ -9,6 +9,7 @@ router.use(requireAdmin);
 router.get('/api/employees', (req, res) => {
   const rows = db.prepare(`
     SELECT e.id, e.name, e.device_token, e.active, e.enrolled_at,
+           e.email, e.ni_number, e.phone, e.device_name,
            l.lat, l.lng, l.recorded_at AS last_seen
     FROM employees e
     LEFT JOIN locations l ON l.id = (
@@ -30,15 +31,30 @@ router.post('/api/employees', (req, res) => {
 });
 
 router.patch('/api/employees/:id', (req, res) => {
-  const { active, name } = req.body || {};
+  const body = req.body || {};
   const emp = db.prepare('SELECT id FROM employees WHERE id = ?').get(req.params.id);
   if (!emp) return res.status(404).json({ error: 'not found' });
-  if (typeof active === 'boolean') {
-    db.prepare('UPDATE employees SET active = ? WHERE id = ?').run(active ? 1 : 0, emp.id);
+  if (typeof body.active === 'boolean') {
+    db.prepare('UPDATE employees SET active = ? WHERE id = ?').run(body.active ? 1 : 0, emp.id);
   }
-  if (typeof name === 'string' && name.trim()) {
-    db.prepare('UPDATE employees SET name = ? WHERE id = ?').run(name.trim(), emp.id);
+  // editable identity fields (admin can rename/assign after self-registration)
+  const trim = v => typeof v === 'string' ? v.trim() : null;
+  if (typeof body.name === 'string' && body.name.trim()) {
+    db.prepare('UPDATE employees SET name = ? WHERE id = ?').run(body.name.trim(), emp.id);
   }
+  const email = trim(body.email);
+  if (email !== null) {
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'invalid email' });
+    }
+    db.prepare('UPDATE employees SET email = ? WHERE id = ?').run(email.toLowerCase() || null, emp.id);
+  }
+  const ni = trim(body.ni_number);
+  if (ni !== null) db.prepare('UPDATE employees SET ni_number = ? WHERE id = ?').run(ni.toUpperCase() || null, emp.id);
+  const phone = trim(body.phone);
+  if (phone !== null) db.prepare('UPDATE employees SET phone = ? WHERE id = ?').run(phone || null, emp.id);
+  const deviceName = trim(body.device_name);
+  if (deviceName !== null) db.prepare('UPDATE employees SET device_name = ? WHERE id = ?').run(deviceName || null, emp.id);
   res.json({ ok: true });
 });
 
