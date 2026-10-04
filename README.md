@@ -67,7 +67,7 @@ No Android Studio needed — the included GitHub Actions workflow builds the APK
 
 1. Push this repo to GitHub.
 2. Actions → "Build Android APK" → enter your **Server URL** (e.g. `https://tracker.yourdomain.com`) and optionally the `REGISTRATION_KEY` → download artifact `work-tracker-apk` → `app-debug.apk`.
-   The server URL and registration key are **baked into the APK** — nothing for employees to configure. Defaults (no input): `http://192.168.1.10:3000`.
+   The server URL and registration key are **baked into the APK** — nothing for employees to configure, and the URL is never shown in the app. The URL resolves as: manual input → GitHub repo variable `TRACKER_SERVER_URL` (Settings → Secrets and variables → Actions → Variables; set it once with your hosted link) → fallback `http://192.168.1.18:3000` (the office PC's LAN IP; rebuild if it changes). The build log echoes the baked URL.
    (Or build locally: `cd android && gradle assembleDebug -PSERVER_URL=https://tracker.yourdomain.com -PREGISTRATION_KEY=yourkey`.)
 
 On the employee's phone:

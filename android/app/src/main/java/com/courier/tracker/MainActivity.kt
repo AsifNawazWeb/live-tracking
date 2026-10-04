@@ -139,10 +139,7 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.status_connecting)
         else
             getString(R.string.status_not_started)
-        statusDetail.text = getString(
-            R.string.status_detail_fmt,
-            BuildConfig.SERVER_URL
-        )
+        statusDetail.text = getString(R.string.status_detail)
     }
 
     private fun onSubmitClicked() {

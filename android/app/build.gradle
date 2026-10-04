@@ -20,7 +20,9 @@ android {
 
         // Server URL and optional registration key baked into the APK at build time.
         // Override with: gradle assembleDebug -PSERVER_URL=https://tracker.yourdomain.com
-        def serverUrl = (project.findProperty('SERVER_URL') ?: 'http://192.168.1.10:3000').toString()
+        // A blank -PSERVER_URL='' (e.g. push-triggered CI builds with no input) falls back to the default.
+        def pUrl = project.findProperty('SERVER_URL')?.toString()?.trim()
+        def serverUrl = pUrl ? pUrl : 'http://192.168.1.18:3000'
         def regKey = (project.findProperty('REGISTRATION_KEY') ?: '').toString()
         if (!serverUrl.startsWith('http://') && !serverUrl.startsWith('https://')) {
             serverUrl = "https://$serverUrl"

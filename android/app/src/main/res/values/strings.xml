@@ -15,7 +15,7 @@
     <string name="status_active">Tracking active</string>
     <string name="status_connecting">Connecting…</string>
     <string name="status_not_started">Not started</string>
-    <string name="status_detail_fmt">Reports your location every 60 seconds to:\n%s</string>
+    <string name="status_detail">Reports your location every 60 seconds.</string>
     <string name="notif_title">Location tracking active</string>
     <string name="notif_text">Sending location every 60 seconds</string>
     <string name="err_name">Enter your full name</string>

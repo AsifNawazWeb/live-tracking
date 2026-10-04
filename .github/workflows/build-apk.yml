@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       server_url:
-        description: 'Server URL to bake into the APK (e.g. https://tracker.yourdomain.com)'
-        required: true
-        default: 'http://192.168.1.10:3000'
+        description: 'Server URL to bake into the APK — leave empty to use repo variable TRACKER_SERVER_URL (fallback: http://192.168.1.18:3000)'
+        required: false
+        default: ''
       registration_key:
         description: 'Optional REGISTRATION_KEY (must match server .env, leave empty if none)'
         required: false
@@ -32,10 +32,19 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      - name: Resolve server URL
+        id: url
+        run: |
+          URL="${{ github.event.inputs.server_url }}"
+          [ -z "$URL" ] && URL="${{ vars.TRACKER_SERVER_URL }}"
+          [ -z "$URL" ] && URL="http://192.168.1.18:3000"
+          echo "Baked SERVER_URL: $URL"
+          echo "SERVER_URL=$URL" >> "$GITHUB_OUTPUT"
+
       - name: Build debug APK
         run: >
           gradle assembleDebug --no-daemon
-          -PSERVER_URL='${{ github.event.inputs.server_url }}'
+          -PSERVER_URL='${{ steps.url.outputs.SERVER_URL }}'
           -PREGISTRATION_KEY='${{ github.event.inputs.registration_key }}'
         working-directory: android
 
