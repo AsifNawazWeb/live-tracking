@@ -23,11 +23,12 @@ app.use(express.json({ limit: '64kb' }));
 app.use(express.urlencoded({ extended: false }));
 
 const ONE_DAY = 24 * 60 * 60 * 1000;
+app.set('trust proxy', 1); // behind Hostinger/other reverse proxies; harmless on LAN
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: 'lax', maxAge: ONE_DAY }
+  cookie: { httpOnly: true, sameSite: 'lax', maxAge: ONE_DAY, secure: 'auto' }
 }));
 
 // static dashboard assets

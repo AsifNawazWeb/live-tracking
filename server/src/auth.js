@@ -1,6 +1,6 @@
 // auth.js — admin session login
 const express = require('express');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 const router = express.Router();
 

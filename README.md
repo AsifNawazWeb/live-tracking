@@ -17,7 +17,7 @@ Disclosed employee location tracking for a courier business.
 cd server
 npm install
 cp .env.example .env      # then edit: set ADMIN_USER, ADMIN_PASSWORD_HASH, SESSION_SECRET
-node -e "console.log(require('bcrypt').hashSync('your_password', 12))"   # make the hash
+node -e "console.log(require('bcryptjs').hashSync('your_password', 12))"   # make the hash
 node src/index.js
 ```
 

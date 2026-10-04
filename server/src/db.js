@@ -1,11 +1,16 @@
-// db.js — SQLite schema and connection
+// db.js — SQLite schema and connection (node:sqlite, no native modules)
 const path = require('path');
-const Database = require('better-sqlite3');
-const crypto = require('crypto');
+const { DatabaseSync } = require('node:sqlite');
 
-const db = new Database(path.join(__dirname, '..', 'data.db'));
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+// Hostinger/managed hosting: set DB_PATH to a persistent location so the
+// database survives redeploys. Defaults to server/data.db next to this project.
+const dbPath = process.env.DB_PATH && process.env.DB_PATH.trim()
+  ? path.resolve(process.env.DB_PATH.trim())
+  : path.join(__dirname, '..', 'data.db');
+
+const db = new DatabaseSync(dbPath);
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA foreign_keys = ON');
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS employees (
@@ -45,7 +50,7 @@ db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_email ON employees(emai
          WHERE email IS NOT NULL AND email != '';`);
 
 function newToken() {
-  return crypto.randomBytes(16).toString('hex');
+  return require('crypto').randomBytes(16).toString('hex');
 }
 
-module.exports = { db, newToken };
+module.exports = { db, newToken, dbPath };

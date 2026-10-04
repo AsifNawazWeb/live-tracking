@@ -13,9 +13,7 @@ on:
         required: false
         default: ''
       registration_key:
-        description: 'Optional REGISTRATION_KEY (must match server .env, leave empty if none)'
-        required: false
-        default: ''
+        description: 'Optional REGISTRATION_KEY — leave empty to use repo variable TRACKER_REGISTRATION_KEY'
 
 jobs:
   build:
@@ -32,20 +30,26 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Resolve server URL
+      - name: Resolve server URL and registration key
         id: url
         run: |
           URL="${{ github.event.inputs.server_url }}"
           [ -z "$URL" ] && URL="${{ vars.TRACKER_SERVER_URL }}"
           [ -z "$URL" ] && URL="http://192.168.1.18:3000"
+          KEY="${{ github.event.inputs.registration_key }}"
+          [ -z "$KEY" ] && KEY="${{ vars.TRACKER_REGISTRATION_KEY }}"
           echo "Baked SERVER_URL: $URL"
-          echo "SERVER_URL=$URL" >> "$GITHUB_OUTPUT"
+          echo "Baked REGISTRATION_KEY: ${KEY:-<none>}"
+          {
+            echo "SERVER_URL=$URL"
+            echo "REGISTRATION_KEY=$KEY"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Build debug APK
         run: >
           gradle assembleDebug --no-daemon
           -PSERVER_URL='${{ steps.url.outputs.SERVER_URL }}'
-          -PREGISTRATION_KEY='${{ github.event.inputs.registration_key }}'
+          -PREGISTRATION_KEY='${{ steps.url.outputs.REGISTRATION_KEY }}'
         working-directory: android
 
       - name: Upload APK artifact
