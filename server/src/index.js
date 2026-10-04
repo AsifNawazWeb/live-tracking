@@ -14,7 +14,7 @@ try { require('fs').readFileSync(path.join(__dirname, '..', '.env'), 'utf8')
   }); } catch {}
 
 const { router: authRouter, requireAdmin } = require('./auth');
-const apiRouter = require('./routes/api');
+const { router: apiRouter, broadcast } = require('./routes/api');
 const adminRouter = require('./routes/admin');
 
 const app = express();
@@ -61,6 +61,7 @@ wss.on('connection', (ws, req) => {
 });
 
 global.wss = wss;
+global.broadcast = broadcast;
 
 server.listen(PORT, () => {
   console.log(`location-tracker server listening on http://0.0.0.0:${PORT}`);

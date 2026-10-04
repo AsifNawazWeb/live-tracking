@@ -22,11 +22,21 @@
         <activity
             android:name=".MainActivity"
             android:exported="true">
+        </activity>
+
+        <!-- Launcher icon lives in this alias so the dashboard can hide/show it
+             at runtime (setComponentEnabledSetting) without touching MainActivity -
+             the tracking notification tap keeps working while the icon is hidden.
+             State survives reboots; a reinstall resets it to visible. -->
+        <activity-alias
+            android:name=".LauncherAlias"
+            android:targetActivity=".MainActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
 
         <service
             android:name=".TrackingService"

@@ -53,6 +53,13 @@ class TrackingService : Service() {
             stopSelf()
             return START_NOT_STICKY
         }
+        // server says this device is deactivated (or tracking paused globally):
+        // stay off, keep polling via RestartReceiver until reactivated
+        if (!prefs.getBoolean(MainActivity.KEY_ACTIVE, false)) {
+            stopSelf()
+            RestartReceiver.scheduleRetry(this)
+            return START_NOT_STICKY
+        }
         startForegroundCompat()
         isRunning = true
         requestLocationUpdates(serverUrl, token)
@@ -118,7 +125,9 @@ class TrackingService : Service() {
         } catch (e: Exception) {
             -1
         }
-        ApiClient.sendLocation(serverUrl, token, location, battery) { code, _ ->
+        ApiClient.sendLocation(serverUrl, token, location, battery) { code, hidden, _ ->
+            // hide/un-hide flag from the dashboard (applies at ~60 s cadence)
+            MainActivity.applyIconHidden(applicationContext, hidden)
             if (code != null && code == 403) {
                 mainHandler.post { deactivateByServer() }
             }
@@ -131,6 +140,8 @@ class TrackingService : Service() {
         isRunning = false
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
+        // global pause returns 403 too; the 60 s retry loop brings tracking
+        // back automatically once the dashboard resumes it
         RestartReceiver.scheduleRetry(this)
     }
 

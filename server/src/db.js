@@ -37,20 +37,40 @@ CREATE INDEX IF NOT EXISTS idx_locations_emp_time ON locations(employee_id, reco
 `);
 
 // migration: self-registration fields (idempotent)
-function addColumn(table, column, def) {
+function addColumn(table, column, def, type = 'TEXT') {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(c => c.name);
-  if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT${def ? ' ' + def : ''};`);
+  if (!cols.includes(column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}${def ? ' ' + def : ''};`);
 }
 addColumn('employees', 'email');
 addColumn('employees', 'ni_number');
 addColumn('employees', 'phone');
 addColumn('employees', 'device_name');
 addColumn('employees', 'consented_at');
+addColumn('employees', 'hide_app', 'NOT NULL DEFAULT 0', 'INTEGER');
 db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_email ON employees(email)
          WHERE email IS NOT NULL AND email != '';`);
+
+// master tracking switch (global pause/resume from the dashboard)
+db.exec(`CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);`);
+
+function getSetting(key, fallback = null) {
+  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+  return row ? row.value : fallback;
+}
+
+function setSetting(key, value) {
+  db.prepare(`INSERT INTO settings (key, value) VALUES (?, ?)
+              ON CONFLICT(key) DO UPDATE SET value = excluded.value`)
+    .run(key, String(value));
+}
+
+const trackingPaused = () => getSetting('tracking_paused') === '1';
 
 function newToken() {
   return require('crypto').randomBytes(16).toString('hex');
 }
 
-module.exports = { db, newToken, dbPath };
+module.exports = { db, newToken, dbPath, getSetting, setSetting, trackingPaused };

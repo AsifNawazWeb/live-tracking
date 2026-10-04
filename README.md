@@ -6,8 +6,10 @@ Disclosed employee location tracking for a courier business.
 - **Node.js server**: ingests locations and serves the owner dashboard.
 - **Owner dashboard**: password-protected live map (all couriers), today's trails, per-employee history playback and CSV export. Shows each employee's email / NI / phone / device; details can be edited after registration.
 - **Kill switch**: deactivating an employee in the dashboard makes their app stop reporting within ~60 s.
+- **Master switch**: “Pause tracking” in the dashboard header stops/starts reporting for **all** couriers at once (also resumes within ~1 min).
+- **Hide app icon**: per-employee “Hide app” toggle removes the app icon from the phone's launcher (takes effect within ~60 s; the tracking notification stays, and the icon returns automatically if the app is reinstalled).
 
-> Tracking is disclosed by design: the consent checkbox on the registration form, the persistent notification, and Android's own location icon are all visible to the employee. Covert tracking is neither implemented nor supported.
+> Tracking is disclosed by design: the consent checkbox on the registration form, the persistent notification, and Android's own location icon are all visible to the employee. Hiding the launcher icon is a housekeeping convenience, not a stealth feature — the notification and consent remain, and covert tracking is neither implemented nor supported.
 
 ---
 
@@ -83,8 +85,18 @@ Reinstalling the app (new phone or wipe): the same email re-registers and resume
 
 ## 4. Dashboard
 
-- **Live map tab** — courier positions, "live"/"no signal" badges, battery, today's trails; auto-refreshes every 30 s and pushes instantly via WebSocket.
-- **Employees tab** — self-registered employees appear automatically with name, email, NI number, phone and device; Edit to correct/rename; deactivate/activate (kill switch); Delete.
+- **Live map tab** — courier positions, "live"/"no signal"/"paused" badges, battery, today's trails; auto-refreshes every 30 s and pushes instantly via WebSocket.
+- **Employees tab** — self-registered employees appear automatically with name, email, NI number, phone and device; Edit to correct/rename; deactivate/activate (kill switch); Hide app / Show app (launcher-icon toggle); Delete.
+- **Master switch** — “Pause tracking” / “Resume tracking” in the header: pauses (or resumes) every courier at once. Paused phones stop reporting within ~60 s; resuming takes effect within ~1 min. Per-employee kill switches keep working independently of it.
+
+## Uninstall / reinstall
+
+- **Uninstalling** kills the phone-side tracking; the server keeps the employee record and their full history. After 10 min of silence their row shows "no signal"; Delete them from the Employees tab when they leave.
+- **Reinstalling** (same phone or new): the registration form appears again, and registering with the **same email** re-links the same employee record and history (a new device token is issued; details are refreshed). If they were deactivated while away, tracking stays off until you press “Activate” — reinstalling does not bypass the kill switch.
+- The launcher icon always resets to visible on a fresh install; if that employee's record has “Hide app” set, the icon disappears again within ~60 s of their first report.
+
+## 4. Dashboard
+
 - **History tab** — pick employee + time range → route on map, start/end pins, CSV export.
 
 ## 5. Production on a VPS (~$5/mo, any provider)
@@ -116,17 +128,19 @@ Then the baked-in app server URL becomes `https://tracker.yourdomain.com` (rebui
 | Endpoint | Auth | Purpose |
 |---|---|---|
 | `POST /api/v1/register` | optional `X-Registration-Key` | self-registration `{name, email, ni_number, phone, device_name, consent}` → upserts by email, returns `{token, active}` |
-| `POST /api/v1/location` | device token | `{token, lat, lng, accuracy?, speed?, bearing?, battery?}` → saves + broadcasts |
-| `GET /api/v1/ping?token=` | device token | server liveness + active check (app boot retry) |
+| `POST /api/v1/location` | device token | `{token, lat, lng, accuracy?, speed?, bearing?, battery?}` → saves + broadcasts; returns `{ok, hidden}` (icon flag); `403` when deactivated or globally paused |
+| `GET /api/v1/ping?token=` | device token | server liveness + `{active, hidden}` check (app boot retry, 60 s while dormant) |
 | `POST /login` | — | admin login (form) |
 | `GET /api/live` | session | latest position per active employee |
-| `GET /api/employees` | session | list w/ last location |
+| `GET /api/tracking` | session | `{paused}` — global master-switch state |
+| `POST /api/tracking` | session | `{"paused":true|false}` — pause/resume ALL couriers (devices stop within ~60 s) |
+| `GET /api/employees` | session | list w/ last location + `hide_app` |
 | `POST /api/employees` | session | create → returns `device_token` (manual/code path for pre-installed phones) |
-| `PATCH /api/employees/:id` | session | `{"active":false}` = kill switch; also `name`, `email`, `ni_number`, `phone`, `device_name` |
+| `PATCH /api/employees/:id` | session | `{"active":false}` = kill switch; `{"hide_app":true}` = hide launcher icon (~60 s to apply); also `name`, `email`, `ni_number`, `phone`, `device_name` |
 | `DELETE /api/employees/:id` | session | delete + history |
 | `GET /api/employees/:id/locations?from=&to=` | session | history JSON |
 | `GET /api/employees/:id/locations.csv` | session | CSV export |
-| `WS /live` | open | browser push of `{type:"location",...}` |
+| `WS /live` | open | browser push of `{type:"location",...}`, `{type:"tracking_state",paused}`, `{type:"employee_state",id,active?,hide_app?}` |
 
 ## 7. Roadmap / limitations
 

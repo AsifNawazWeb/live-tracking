@@ -29,6 +29,32 @@ class MainActivity : AppCompatActivity() {
         const val KEY_TOKEN = "activation_code"
         const val KEY_NAME = "employee_name"
         const val KEY_ACTIVE = "tracking_on"
+        const val KEY_ICON_STATE = "icon_state" // 1 = hidden
+
+        /**
+         * Show/hide the launcher icon (dashboard-controlled). The icon is the
+         * .LauncherAlias activity-alias; MainActivity stays enabled so the
+         * tracking notification tap still opens the status screen.
+         */
+        fun applyIconHidden(context: Context, hidden: Boolean) {
+            val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            val alreadyHidden = prefs.getInt(KEY_ICON_STATE, 0) == 1
+            if (hidden == alreadyHidden) return
+            val pm = context.packageManager
+            val alias = android.content.ComponentName(context, ".LauncherAlias")
+            val state = if (hidden)
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            else
+                android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+            try {
+                pm.setComponentEnabledSetting(
+                    alias, state,
+                    android.content.pm.PackageManager.DONT_KILL_APP
+                )
+                prefs.edit().putInt(KEY_ICON_STATE, if (hidden) 1 else 0).apply()
+            } catch (e: Exception) {
+            }
+        }
     }
 
     private lateinit var prefs: SharedPreferences
@@ -121,7 +147,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (!prefs.getString(KEY_TOKEN, null).isNullOrBlank()) showStatus()
+        if (!prefs.getString(KEY_TOKEN, null).isNullOrBlank()) {
+            // safety net: if tracking should be on but the service was killed
+            // (e.g. by the OS) without a server 403, restart it
+            if (prefs.getBoolean(KEY_ACTIVE, false) && !TrackingService.isRunning) {
+                startForegroundServiceSafe()
+            }
+            showStatus()
+        }
+    }
+
+    private fun startForegroundServiceSafe() {
+        val i = Intent(this, TrackingService::class.java)
+        ContextCompat.startForegroundService(this, i)
     }
 
     private fun showRegister() {
@@ -175,14 +213,15 @@ class MainActivity : AppCompatActivity() {
             name, email, ni, phone,
             deviceName.ifEmpty { "${Build.MANUFACTURER} ${Build.MODEL}" },
             consentCheckbox.isChecked,
-            onSuccess = { token ->
+            onSuccess = { token, active, hidden ->
                 prefs.edit()
                     .putString(KEY_TOKEN, token)
                     .putString(KEY_NAME, name)
-                    .putBoolean(KEY_ACTIVE, false)
+                    .putBoolean(KEY_ACTIVE, active)
                     .apply()
                 runOnUiThread {
                     submitButton.text = getString(R.string.submit_start)
+                    MainActivity.applyIconHidden(this, hidden)
                     requestFineLocation()
                 }
             },

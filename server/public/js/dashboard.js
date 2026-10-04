@@ -5,6 +5,41 @@ const colorFor = id => COLORS[id % COLORS.length];
 let map, histMap, liveData = [], markers = {}, trails = {};
 let histTrail, histMarkers = [];
 let employees = [];
+let trackingPaused = false;   // global master switch state
+
+function renderPauseUi() {
+  const btn = document.getElementById('btn-pause-tracking');
+  const banner = document.getElementById('paused-banner');
+  if (!btn) return;
+  btn.textContent = trackingPaused ? 'Resume tracking' : 'Pause tracking';
+  btn.classList.toggle('off', trackingPaused);
+  btn.classList.toggle('danger', !trackingPaused);
+  if (banner) banner.classList.toggle('hidden', !trackingPaused);
+  renderLive();
+  if (employees.length) renderManageList();
+}
+
+async function loadTrackingState() {
+  const res = await fetch('/api/tracking');
+  if (!res.ok) return;
+  ({ paused: trackingPaused } = await res.json());
+  renderPauseUi();
+}
+
+async function setTrackingPaused(paused, askConfirm = true) {
+  if (askConfirm && !confirm(paused
+    ? 'Pause tracking? All courier phones stop reporting within ~60 s (their history and employee records are kept).'
+    : 'Resume tracking for all couriers?')) return;
+  const res = await fetch('/api/tracking', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paused })
+  });
+  if (res.status === 401) { location.href = '/login'; return; }
+  if (!res.ok) { alert('Failed to change tracking state'); return; }
+  ({ paused: trackingPaused } = await res.json());
+  renderPauseUi();
+}
 
 /* ---------- live map ---------- */
 function initLive() {
@@ -18,6 +53,7 @@ function initLive() {
   setInterval(refreshLive, 30000);
 
   connectWS();
+  loadTrackingState();
 }
 
 async function refreshLive() {
@@ -39,7 +75,9 @@ function renderLive() {
     const row = tpl.content.cloneNode(true);
     row.querySelector('.name').textContent = e.name;
     row.querySelector('.dot').classList.toggle('stale', stale);
-    row.querySelector('.badge').textContent = stale ? 'no signal' : 'live';
+    row.querySelector('.badge').textContent = trackingPaused ? 'paused' :
+      (stale ? 'no signal' : 'live');
+    if (trackingPaused) row.querySelector('.badge').classList.add('badge-paused');
     row.querySelector('.emp-meta').textContent = e.lat != null
       ? `${e.lat.toFixed(5)}, ${e.lng.toFixed(5)} · ${ago(e.recorded_at)}${e.battery != null ? ' · 🔋' + e.battery + '%' : ''}`
       : 'no locations yet';
@@ -77,6 +115,20 @@ function connectWS() {
   ws.onmessage = (ev) => {
     try {
       const m = JSON.parse(ev.data);
+      if (m.type === 'tracking_state') {
+        trackingPaused = !!m.paused;
+        renderPauseUi();
+        return;
+      }
+      if (m.type === 'employee_state') {
+        const e = employees.find(x => x.id === m.id);
+        if (e) {
+          if (m.active !== undefined) e.active = m.active;
+          if (m.hide_app !== undefined) e.hide_app = m.hide_app;
+          renderManageList();
+        }
+        return;
+      }
       if (m.type !== 'location') return;
       const e = liveData.find(x => x.id === m.employee_id);
       if (!e) { refreshLive(); return; }
@@ -118,6 +170,7 @@ function renderManageList() {
       <div class="manage-main">
         <div class="manage-name"><strong>${esc(e.name)}</strong>
           <span class="pill ${e.active ? 'on' : 'off'}">${e.active ? 'tracking on' : 'stopped'}</span>
+          ${e.hide_app ? '<span class="pill">hidden</span>' : ''}
         </div>
         <div class="manage-meta">
           <span>${seen}${e.battery != null ? ' · 🔋' + e.battery + '%' : ''}</span>
@@ -135,6 +188,10 @@ function renderManageList() {
       <div class="manage-actions">
         <button class="btn ${e.active ? 'off' : ''} js-toggle" data-id="${e.id}" data-active="${e.active}">
           ${e.active ? 'Deactivate' : 'Activate'}
+        </button>
+        <button class="btn js-hide" data-id="${e.id}" data-hide="${e.hide_app}"
+                title="Hide the app icon on the employee's phone (takes effect within ~60 s)">
+          ${e.hide_app ? 'Show app' : 'Hide app'}
         </button>
         <button class="btn js-edit" data-id="${e.id}">Edit</button>
         <button class="btn danger js-del" data-id="${e.id}" data-name="${esc(e.name)}">Delete</button>
@@ -182,6 +239,17 @@ async function setEmployeeActive(id, active) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ active })
   });
+  loadEmployees();
+}
+
+async function setEmployeeHideApp(id, hide) {
+  const res = await fetch(`/api/employees/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hide_app: hide })
+  });
+  if (res.status === 401) { location.href = '/login'; return; }
+  if (!res.ok) { alert('Failed to change app visibility'); return; }
   loadEmployees();
 }
 
@@ -295,12 +363,15 @@ document.getElementById('btn-history').onclick = () => switchTab('history');
 document.getElementById('add-emp-btn').onclick = addEmployee;
 document.getElementById('new-emp-name').addEventListener('keydown', e => { if (e.key === 'Enter') addEmployee(); });
 document.getElementById('hist-load').onclick = loadHistory;
+document.getElementById('btn-pause-tracking').onclick = () => setTrackingPaused(!trackingPaused);
 
 document.getElementById('manage-list').addEventListener('click', e => {
   const copyBtn = e.target.closest('.copy-chip');
   if (copyBtn) return copyText(copyBtn, copyBtn.dataset.copy);
   const toggleBtn = e.target.closest('.js-toggle');
   if (toggleBtn) return setEmployeeActive(toggleBtn.dataset.id, toggleBtn.dataset.active !== 'true');
+  const hideBtn = e.target.closest('.js-hide');
+  if (hideBtn) return setEmployeeHideApp(hideBtn.dataset.id, hideBtn.dataset.hide !== 'true');
   const editBtn = e.target.closest('.js-edit');
   if (editBtn) return toggleEditForm(editBtn.dataset.id);
   const cancelBtn = e.target.closest('.js-cancel');

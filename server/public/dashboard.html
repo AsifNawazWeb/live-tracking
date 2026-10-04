@@ -14,9 +14,12 @@
     <button id="btn-live" class="tab active">Live map</button>
     <button id="btn-employees" class="tab">Employees</button>
     <button id="btn-history" class="tab">History</button>
+    <button id="btn-pause-tracking" class="btn off" title="Stop / start location reporting for all couriers">Pause tracking</button>
     <form action="/logout" method="post" class="inline"><button class="linklike">Log out</button></form>
   </nav>
 </header>
+
+<div id="paused-banner" class="hidden">⏸ Tracking is paused — courier phones stop reporting within ~60&nbsp;s. Press “Resume tracking” to restart.</div>
 
 <main>
   <section id="panel-live" class="panel">

@@ -1,19 +1,33 @@
 // api.js — device-facing ingest endpoint (token auth)
 const express = require('express');
-const { db, newToken } = require('../db');
+const { db, newToken, trackingPaused } = require('../db');
 const { checkRegistrationKey } = require('../auth');
 
 const router = express.Router();
 
+function broadcast(msg) {
+  if (!global.wss) return;
+  const data = JSON.stringify(msg);
+  for (const client of global.wss.clients) {
+    if (client.readyState === 1) client.send(data);
+  }
+}
+
 // UK National Insurance number: 2 valid prefix letters, 6 digits, 1 suffix letter (A-D) or space
 const NI_RE = /^[ABCEGHJ-NPRSTW-Z]{2}\d{6}[A-D ]$/;
 
+// Global pause (dashboard master switch): devices see 403 and stop reporting
+// within ~60 s using their existing deactivate logic. Per-employee flags are
+// untouched, so kill switch and master switch work independently.
 router.post('/api/v1/location', (req, res) => {
+  if (trackingPaused()) {
+    return res.status(403).json({ error: 'paused', paused: true });
+  }
   const { token, lat, lng, accuracy, speed, bearing, battery } = req.body || {};
   if (!token || typeof lat !== 'number' || typeof lng !== 'number') {
     return res.status(400).json({ error: 'token, lat, lng required' });
   }
-  const emp = db.prepare('SELECT id, active FROM employees WHERE device_token = ?').get(token);
+  const emp = db.prepare('SELECT id, active, hide_app FROM employees WHERE device_token = ?').get(token);
   if (!emp) return res.status(404).json({ error: 'unknown token' });
   if (!emp.active) return res.status(403).json({ error: 'deactivated' });
 
@@ -27,15 +41,19 @@ router.post('/api/v1/location', (req, res) => {
               accuracy: numOrNull(accuracy), speed: numOrNull(speed),
               bearing: numOrNull(bearing), battery: intOrNull(battery),
               recorded_at: new Date().toISOString() });
-  res.json({ ok: true });
+
+  // lets an actively-reporting phone apply icon hide/un-hide at its 60 s cadence
+  res.json({ ok: true, hidden: !!emp.hide_app });
 });
 
 // lightweight reachability check for the app
 router.get('/api/v1/ping', (req, res) => {
   const { token } = req.query;
-  const emp = token && db.prepare('SELECT active FROM employees WHERE device_token = ?').get(token);
+  const emp = token && db.prepare('SELECT active, hide_app FROM employees WHERE device_token = ?').get(token);
   if (!emp) return res.status(404).json({ error: 'unknown token' });
-  res.json({ ok: true, active: !!emp.active });
+  // active=false keeps a phone whose tracking is paused/deactivated from
+  // relaunching its foreground service; hidden drives launcher-icon visibility
+  res.json({ ok: true, active: !!emp.active && !trackingPaused(), hidden: !!emp.hide_app });
 });
 
 // self-registration from the app's first-run form.
@@ -61,7 +79,7 @@ router.post('/api/v1/register', (req, res) => {
   if (raw.consent !== true) return fail(res, 'consent', 'Location tracking consent is required');
 
   const token = newToken();
-  const existing = db.prepare('SELECT id, active FROM employees WHERE email = ?').get(email);
+  const existing = db.prepare('SELECT id, active, hide_app FROM employees WHERE email = ?').get(email);
   let id;
   if (existing) {
     id = existing.id;
@@ -77,8 +95,11 @@ router.post('/api/v1/register', (req, res) => {
       .run(name, email, ni, phone, deviceName, token);
     id = info.lastInsertRowid;
   }
-  const active = !!db.prepare('SELECT active FROM employees WHERE id = ?').get(id).active;
-  res.status(201).json({ ok: true, token, active, employee_id: id });
+  const row = db.prepare('SELECT active, hide_app FROM employees WHERE id = ?').get(id);
+  const active = !!row.active;
+  const hidden = !!row.hide_app;
+  // console.log('register response', { active, hidden });
+  res.status(201).json({ ok: true, token, active, hidden, employee_id: id });
 });
 
 function fail(res, field, message) {
@@ -88,12 +109,4 @@ function fail(res, field, message) {
 function numOrNull(v) { return typeof v === 'number' && isFinite(v) ? v : null; }
 function intOrNull(v) { return Number.isInteger(v) ? v : null; }
 
-function broadcast(msg) {
-  if (!global.wss) return;
-  const data = JSON.stringify(msg);
-  for (const client of global.wss.clients) {
-    if (client.readyState === 1) client.send(data);
-  }
-}
-
-module.exports = router;
+module.exports = { router, broadcast };

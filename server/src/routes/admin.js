@@ -1,14 +1,28 @@
 // admin.js — dashboard API for the owner
 const express = require('express');
-const { db, newToken } = require('../db');
+const { db, newToken, trackingPaused, setSetting } = require('../db');
 const { requireAdmin } = require('../auth');
+const { broadcast } = require('./api');
 
 const router = express.Router();
 router.use(requireAdmin);
 
+// global master switch (pause/resume ALL tracking)
+router.get('/api/tracking', (_req, res) => {
+  res.json({ paused: trackingPaused() });
+});
+
+router.post('/api/tracking', (req, res) => {
+  const paused = req.body && req.body.paused === true;
+  setSetting('tracking_paused', paused ? '1' : '0');
+  broadcast({ type: 'tracking_state', paused });
+  // bubbles up so dashboard rows + map pick up the change immediately
+  res.json({ ok: true, paused });
+});
+
 router.get('/api/employees', (req, res) => {
   const rows = db.prepare(`
-    SELECT e.id, e.name, e.device_token, e.active, e.enrolled_at,
+    SELECT e.id, e.name, e.device_token, e.active, e.enrolled_at, e.hide_app,
            e.email, e.ni_number, e.phone, e.device_name,
            l.lat, l.lng, l.recorded_at AS last_seen
     FROM employees e
@@ -16,6 +30,7 @@ router.get('/api/employees', (req, res) => {
       SELECT id FROM locations WHERE employee_id = e.id
       ORDER BY recorded_at DESC LIMIT 1)
     ORDER BY e.name`).all();
+  rows.forEach(r => { r.hide_app = !!r.hide_app; });
   res.json(rows);
 });
 
@@ -34,8 +49,15 @@ router.patch('/api/employees/:id', (req, res) => {
   const body = req.body || {};
   const emp = db.prepare('SELECT id FROM employees WHERE id = ?').get(req.params.id);
   if (!emp) return res.status(404).json({ error: 'not found' });
+
+  // remote icon visibility switch (takes effect on the phone within ~60 s)
+  if (typeof body.hide_app === 'boolean') {
+    db.prepare('UPDATE employees SET hide_app = ? WHERE id = ?').run(body.hide_app ? 1 : 0, emp.id);
+    broadcast({ type: 'employee_state', id: emp.id, hide_app: !!body.hide_app });
+  }
   if (typeof body.active === 'boolean') {
     db.prepare('UPDATE employees SET active = ? WHERE id = ?').run(body.active ? 1 : 0, emp.id);
+    broadcast({ type: 'employee_state', id: emp.id, active: !!body.active });
   }
   // editable identity fields (admin can rename/assign after self-registration)
   const trim = v => typeof v === 'string' ? v.trim() : null;
@@ -66,12 +88,13 @@ router.delete('/api/employees/:id', (req, res) => {
 // latest position per employee (live map snapshot)
 router.get('/api/live', (req, res) => {
   const rows = db.prepare(`
-    SELECT e.id, e.name, e.active, l.lat, l.lng, l.accuracy, l.speed, l.battery, l.recorded_at
+    SELECT e.id, e.name, e.active, e.hide_app, l.lat, l.lng, l.accuracy, l.speed, l.battery, l.recorded_at
     FROM employees e
     LEFT JOIN locations l ON l.id = (
       SELECT id FROM locations WHERE employee_id = e.id
       ORDER BY recorded_at DESC LIMIT 1)
     WHERE e.active = 1`).all();
+  rows.forEach(r => { r.hide_app = !!r.hide_app; });
   res.json(rows);
 });
 
